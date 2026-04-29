@@ -1,0 +1,882 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>GeoAlgérie – Guess the Algerian City</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;700;800&family=DM+Sans:ital,wght@0,400;0,500;1,400&display=swap" rel="stylesheet"/>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --gold: #d4a843;
+    --gold-light: #e8be5a;
+    --bg: #07101f;
+    --surface: #0f1c33;
+    --surface2: #162440;
+    --border: #1e3055;
+    --text: #e8e4d9;
+    --muted: #7a8aaa;
+    --green: #4ade80;
+  }
+
+  html, body { height: 100%; }
+
+  body {
+    font-family: 'DM Sans', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* ── HEADER ── */
+  header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 2rem;
+    height: 60px;
+    background: rgba(7,16,31,0.95);
+    border-bottom: 1px solid var(--border);
+    position: fixed;
+    top: 0; left: 0; right: 0;
+    z-index: 100;
+    backdrop-filter: blur(10px);
+  }
+
+  .logo {
+    font-family: 'Syne', sans-serif;
+    font-weight: 800;
+    font-size: 22px;
+    letter-spacing: -0.5px;
+    color: var(--text);
+  }
+  .logo span { color: var(--gold); }
+
+  .hud-bar {
+    display: flex;
+    gap: 1.5rem;
+    align-items: center;
+  }
+  .hud-item { text-align: center; }
+  .hud-label { font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; }
+  .hud-value { font-family: 'Syne', sans-serif; font-size: 20px; font-weight: 700; color: var(--text); }
+
+  /* ── START SCREEN ── */
+  #start-screen {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    padding: 2rem;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .bg-map-deco {
+    position: absolute;
+    inset: 0;
+    opacity: 0.04;
+    pointer-events: none;
+  }
+
+  .flag-big { font-size: 72px; margin-bottom: 1.5rem; animation: float 4s ease-in-out infinite; }
+  @keyframes float { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-12px)} }
+
+  .main-title {
+    font-family: 'Syne', sans-serif;
+    font-size: clamp(52px, 10vw, 96px);
+    font-weight: 800;
+    letter-spacing: -3px;
+    line-height: 0.9;
+    color: var(--text);
+  }
+  .main-title .accent { color: var(--gold); }
+
+  .tagline {
+    font-size: 14px;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 3px;
+    margin-top: 1rem;
+  }
+
+  .start-desc {
+    max-width: 460px;
+    color: #6a7a9a;
+    font-size: 15px;
+    line-height: 1.7;
+    margin-top: 1.5rem;
+  }
+
+  .btn {
+    font-family: 'Syne', sans-serif;
+    font-weight: 700;
+    font-size: 14px;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    padding: 14px 40px;
+    border-radius: 4px;
+    border: none;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .btn-gold {
+    background: var(--gold);
+    color: var(--bg);
+    margin-top: 2.5rem;
+  }
+  .btn-gold:hover { background: var(--gold-light); transform: translateY(-2px); box-shadow: 0 8px 24px rgba(212,168,67,0.3); }
+  .btn-outline {
+    background: transparent;
+    color: var(--gold);
+    border: 1.5px solid var(--gold);
+    margin-top: 0.75rem;
+  }
+  .btn-outline:hover { background: rgba(212,168,67,0.1); }
+
+  .stats-row {
+    display: flex;
+    gap: 2.5rem;
+    margin-top: 2rem;
+    color: #3a4a6a;
+    font-size: 13px;
+  }
+  .stats-row span { display: flex; align-items: center; gap: 6px; }
+
+  /* ── GAME SCREEN ── */
+  #game-screen {
+    display: none;
+    height: 100vh;
+    padding-top: 60px;
+    flex-direction: column;
+  }
+
+  .game-body {
+    display: flex;
+    flex: 1;
+    min-height: 0;
+  }
+
+  /* Scene panel */
+  #scene-panel {
+    flex: 1;
+    position: relative;
+    background: #0a1525;
+    overflow: hidden;
+  }
+
+  #scene-svg-wrap {
+    width: 100%;
+    height: 100%;
+  }
+
+  .scene-overlay-bottom {
+    position: absolute;
+    bottom: 0; left: 0; right: 0;
+    padding: 1.5rem 2rem;
+    background: linear-gradient(to top, rgba(7,16,31,0.95) 0%, transparent 100%);
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+  }
+
+  .clue-box { max-width: 380px; }
+  .wilaya-badge {
+    display: inline-block;
+    background: rgba(212,168,67,0.15);
+    color: var(--gold);
+    font-size: 11px;
+    padding: 3px 10px;
+    border-radius: 3px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-bottom: 8px;
+    border: 1px solid rgba(212,168,67,0.3);
+  }
+  .clue-text {
+    font-size: 14px;
+    color: #9aaccf;
+    line-height: 1.6;
+  }
+  .clue-text strong { color: var(--gold); font-weight: 500; }
+
+  .round-pip-wrap {
+    display: flex;
+    gap: 6px;
+  }
+  .pip {
+    width: 28px;
+    height: 4px;
+    border-radius: 2px;
+    background: var(--border);
+    transition: background 0.3s;
+  }
+  .pip.done { background: var(--gold); }
+  .pip.active { background: var(--gold-light); }
+
+  /* Map sidebar */
+  #map-sidebar {
+    width: 320px;
+    background: var(--surface);
+    border-left: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    padding: 1.25rem;
+    gap: 1rem;
+  }
+
+  .map-title {
+    font-family: 'Syne', sans-serif;
+    font-size: 12px;
+    color: var(--gold);
+    letter-spacing: 2px;
+    text-transform: uppercase;
+  }
+
+  #dz-map {
+    width: 100%;
+    border-radius: 8px;
+    cursor: crosshair;
+    background: #0d1525;
+    border: 1px solid var(--border);
+    flex: 1;
+    min-height: 0;
+  }
+
+  .dz-region { fill: #162440; stroke: #223260; stroke-width: 0.8; transition: fill 0.15s; }
+  .dz-region:hover { fill: #1e3058; }
+
+  #guess-btn {
+    width: 100%;
+    padding: 13px;
+    font-family: 'Syne', sans-serif;
+    font-weight: 700;
+    font-size: 13px;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    background: var(--gold);
+    color: var(--bg);
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.2s;
+    opacity: 0.35;
+    pointer-events: none;
+  }
+  #guess-btn.active { opacity: 1; pointer-events: all; }
+  #guess-btn.active:hover { background: var(--gold-light); transform: translateY(-1px); }
+
+  .map-hint {
+    font-size: 12px;
+    color: var(--muted);
+    text-align: center;
+  }
+
+  /* ── RESULT SCREEN ── */
+  #result-screen {
+    display: none;
+    min-height: 100vh;
+    padding-top: 60px;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+    padding: 80px 2rem 2rem;
+  }
+
+  .result-wrap {
+    max-width: 520px;
+    width: 100%;
+    text-align: center;
+  }
+
+  .stars-big { font-size: 36px; margin-bottom: 1rem; }
+
+  .score-giant {
+    font-family: 'Syne', sans-serif;
+    font-size: 88px;
+    font-weight: 800;
+    color: var(--gold);
+    line-height: 1;
+    letter-spacing: -3px;
+  }
+  .score-sub { font-size: 13px; color: var(--muted); text-transform: uppercase; letter-spacing: 2px; margin-top: 4px; }
+
+  .result-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 1.5rem;
+    margin-top: 2rem;
+    text-align: left;
+  }
+  .result-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 0;
+    border-bottom: 1px solid var(--border);
+    font-size: 14px;
+  }
+  .result-row:last-child { border-bottom: none; }
+  .result-row .label { color: var(--muted); }
+  .result-row .val { font-weight: 500; color: var(--text); }
+  .result-row .val.green { color: var(--green); }
+  .result-row .val.gold { color: var(--gold); }
+
+  .result-map-preview {
+    width: 100%;
+    height: 160px;
+    background: #0d1525;
+    border-radius: 8px;
+    margin-top: 1rem;
+    overflow: hidden;
+  }
+
+  .btn-row { display: flex; gap: 12px; margin-top: 1.5rem; justify-content: center; }
+
+  /* ── FINAL SCREEN ── */
+  #final-screen {
+    display: none;
+    min-height: 100vh;
+    padding-top: 60px;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+    padding: 80px 2rem 2rem;
+    text-align: center;
+  }
+
+  .medal { font-size: 80px; animation: pop 0.6s cubic-bezier(0.175,0.885,0.32,1.275); }
+  @keyframes pop { 0%{transform:scale(0)} 100%{transform:scale(1)} }
+
+  .final-score {
+    font-family: 'Syne', sans-serif;
+    font-size: 72px;
+    font-weight: 800;
+    color: var(--gold);
+    letter-spacing: -2px;
+    margin: 1rem 0 0.25rem;
+  }
+
+  .score-breakdown {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 8px;
+    margin: 2rem 0;
+    max-width: 420px;
+    width: 100%;
+  }
+  .round-pill {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 10px 6px;
+    text-align: center;
+  }
+  .round-pill .r-label { font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; }
+  .round-pill .r-score { font-family: 'Syne', sans-serif; font-weight: 700; font-size: 18px; color: var(--gold); margin-top: 4px; }
+</style>
+</head>
+<body>
+
+<!-- HEADER -->
+<header id="header" style="display:none;">
+  <div class="logo">Geo<span>Algérie</span> 🇩🇿</div>
+  <div class="hud-bar">
+    <div class="hud-item">
+      <div class="hud-label">Round</div>
+      <div class="hud-value" id="round-display">1 / 5</div>
+    </div>
+    <div class="hud-item">
+      <div class="hud-label">Score</div>
+      <div class="hud-value" id="score-display">0</div>
+    </div>
+  </div>
+</header>
+
+<!-- START SCREEN -->
+<div id="start-screen">
+  <svg class="bg-map-deco" viewBox="0 0 500 420" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMid slice">
+    <path d="M40,65 L430,65 L495,90 L495,420 L5,420 L5,310 L35,155 Z" fill="none" stroke="#d4a843" stroke-width="2"/>
+    <path d="M75,60 L340,60 L350,130 L90,110 Z" fill="#d4a843" opacity="0.3"/>
+    <path d="M280,135 L350,130 L420,170 L310,175 Z" fill="#d4a843" opacity="0.2"/>
+    <circle cx="215" cy="82" r="6" fill="#d4a843"/>
+    <circle cx="115" cy="90" r="5" fill="#d4a843"/>
+    <circle cx="268" cy="78" r="5" fill="#d4a843"/>
+    <circle cx="255" cy="320" r="5" fill="#d4a843"/>
+    <circle cx="225" cy="205" r="5" fill="#d4a843"/>
+  </svg>
+  <div class="flag-big">🇩🇿</div>
+  <div class="main-title">Geo<span class="accent">Algérie</span></div>
+  <div class="tagline">Explore the 48 Wilayas</div>
+  <p class="start-desc">
+    You'll be shown illustrated scenes and cultural clues from across Algeria.
+    Place your guess on the map and discover how well you know your country.
+  </p>
+  <button class="btn btn-gold" onclick="startGame()">Start Playing</button>
+  <div class="stats-row">
+    <span>🏆 5 rounds</span>
+    <span>📍 10 Algerian cities</span>
+    <span>🎯 Score by distance</span>
+    <span>⏱️ No time limit</span>
+  </div>
+</div>
+
+<!-- GAME SCREEN -->
+<div id="game-screen">
+  <div class="game-body">
+    <div id="scene-panel">
+      <div id="scene-svg-wrap"></div>
+      <div class="scene-overlay-bottom">
+        <div class="clue-box">
+          <div class="wilaya-badge" id="wilaya-badge"></div>
+          <div class="clue-text" id="clue-text"></div>
+        </div>
+        <div class="round-pip-wrap" id="pips"></div>
+      </div>
+    </div>
+
+    <div id="map-sidebar">
+      <div class="map-title">📍 Place your guess</div>
+      <svg id="dz-map" viewBox="0 0 500 420" xmlns="http://www.w3.org/2000/svg" onclick="placeGuess(event)">
+        <rect width="500" height="420" fill="#0d1525"/>
+        <g id="map-regions"></g>
+        <g id="markers-layer"></g>
+      </svg>
+      <div class="map-hint" id="map-hint">Click on the map to place your guess</div>
+      <button id="guess-btn" onclick="submitGuess()">Confirm Guess ↗</button>
+    </div>
+  </div>
+</div>
+
+<!-- RESULT SCREEN -->
+<div id="result-screen">
+  <div class="result-wrap">
+    <div class="stars-big" id="result-stars"></div>
+    <div class="score-giant" id="result-score">+0</div>
+    <div class="score-sub">points this round</div>
+    <div class="result-card" id="result-details"></div>
+    <div class="btn-row">
+      <button class="btn btn-gold" id="next-btn" onclick="nextRound()">Next Round</button>
+    </div>
+  </div>
+</div>
+
+<!-- FINAL SCREEN -->
+<div id="final-screen">
+  <div class="medal" id="final-medal">🥇</div>
+  <div style="font-family:'Syne',sans-serif;font-size:14px;color:var(--muted);letter-spacing:2px;text-transform:uppercase;margin-top:1rem;">Final Score</div>
+  <div class="final-score" id="final-score-val">0</div>
+  <div style="color:var(--muted);font-size:13px;" id="final-pct"></div>
+  <div class="score-breakdown" id="score-breakdown"></div>
+  <p style="color:#6a7a9a;font-size:14px;max-width:340px;line-height:1.6;" id="final-msg"></p>
+  <div class="btn-row" style="margin-top:2rem;">
+    <button class="btn btn-gold" onclick="restartGame()">Play Again</button>
+  </div>
+</div>
+
+<script>
+const locations = [
+  {
+    name:"Algiers", wilaya:"Alger (01)", x:215, y:82,
+    clue:"The <strong>capital city</strong> on the bay, famous for its white Ottoman architecture and the historic Casbah — a UNESCO World Heritage site.",
+    color:"#1a3060", accent:"#3a6aD4", icon:"🏛️", desc:"Casbah district · Mediterranean port",
+    scene:'city'
+  },
+  {
+    name:"Oran", wilaya:"Oran (31)", x:115, y:90,
+    clue:"Algeria's <strong>second largest city</strong>, 'La Radieuse'. Famous for Raï music, Spanish colonial architecture, and Fort Santa Cruz.",
+    color:"#1a4a2a", accent:"#2d9a60", icon:"🎵", desc:"Fort Santa Cruz · Raï music capital",
+    scene:'coastal'
+  },
+  {
+    name:"Constantine", wilaya:"Constantine (25)", x:268, y:78,
+    clue:"The <strong>City of Bridges</strong>, dramatically perched on a rocky plateau above the Rhumel Gorge. Ancient Numidian capital.",
+    color:"#4a2a10", accent:"#c4622a", icon:"🌉", desc:"Suspended bridges · Rhumel Gorge",
+    scene:'bridges'
+  },
+  {
+    name:"Tamanrasset", wilaya:"Tamanrasset (11)", x:255, y:320,
+    clue:"Deep in the <strong>Sahara desert</strong>, gateway to the spectacular Hoggar Mountains and the ancient Tuareg civilization.",
+    color:"#5c3a10", accent:"#d4862a", icon:"🏔️", desc:"Hoggar Mountains · Tuareg culture",
+    scene:'sahara'
+  },
+  {
+    name:"Tlemcen", wilaya:"Tlemcen (13)", x:75, y:88,
+    clue:"The <strong>City of Art and History</strong>, known for its magnificent Zianid-era mosques, palaces, and lush gardens.",
+    color:"#2a1050", accent:"#7a3ab4", icon:"🕌", desc:"Great Mosque · Mansourah ruins",
+    scene:'mosque'
+  },
+  {
+    name:"Annaba", wilaya:"Annaba (23)", x:295, y:70,
+    clue:"A <strong>coastal city</strong> in the northeast, near the ancient ruins of Hippo Regius — the home of Saint Augustine.",
+    color:"#102050", accent:"#2a6aaa", icon:"⚓", desc:"Seaport · Basilica of St. Augustine",
+    scene:'coastal'
+  },
+  {
+    name:"Ghardaïa", wilaya:"Ghardaïa (47)", x:225, y:205,
+    clue:"A <strong>UNESCO World Heritage</strong> M'zab valley city. Famous for its unique pentapolis and Ibadi Islamic architecture.",
+    color:"#4a2c10", accent:"#c47a2a", icon:"🏺", desc:"M'zab Valley · Ibadi architecture",
+    scene:'mozab'
+  },
+  {
+    name:"Béjaïa", wilaya:"Béjaïa (06)", x:248, y:76,
+    clue:"A <strong>Kabyle coastal city</strong> where mountains meet the sea. Historically, the number zero was transmitted to Europe from here.",
+    color:"#104a3a", accent:"#2a9a7a", icon:"🔢", desc:"Cap Carbon · Kabyle mountains",
+    scene:'coastal'
+  },
+  {
+    name:"Biskra", wilaya:"Biskra (07)", x:270, y:150,
+    clue:"The <strong>Gateway to the Sahara</strong> — known for its vast date palm oases and its position between the Atlas mountains and the desert.",
+    color:"#3c2c10", accent:"#9a7a2a", icon:"🌴", desc:"Date palm oasis · Desert gateway",
+    scene:'oasis'
+  },
+  {
+    name:"Djanet", wilaya:"Illizi (33)", x:360, y:280,
+    clue:"A remote oasis near the <strong>Tassili n'Ajjer</strong> plateau, home to some of the world's most important prehistoric cave paintings.",
+    color:"#3a1010", accent:"#9a3a2a", icon:"🎨", desc:"Tassili rock art · Ancient paintings",
+    scene:'desert_art'
+  }
+];
+
+let currentRound = 0;
+let totalScore = 0;
+let guessX = null, guessY = null;
+let guessPlaced = false;
+const MAX_ROUNDS = 5;
+let roundOrder = [];
+let roundScores = [];
+
+function shuffle(arr){
+  const a=[...arr];
+  for(let i=a.length-1;i>0;i--){
+    const j=Math.floor(Math.random()*(i+1));
+    [a[i],a[j]]=[a[j],a[i]];
+  }
+  return a;
+}
+
+function buildMap(){
+  const regions=[
+    {d:'M75,60 L340,60 L350,130 L280,135 L250,110 L200,115 L170,108 L130,115 L90,110 Z'},
+    {d:'M280,135 L350,130 L380,75 L430,80 L420,170 L350,185 L310,175 Z'},
+    {d:'M40,65 L75,60 L90,110 L130,115 L120,160 L70,170 L35,155 Z'},
+    {d:'M70,170 L120,160 L130,115 L170,108 L200,115 L250,110 L280,135 L310,175 L350,185 L340,240 L280,255 L230,245 L180,250 L130,240 L80,230 Z'},
+    {d:'M310,175 L420,170 L430,80 L490,90 L495,300 L380,310 L350,290 L330,260 L340,240 Z'},
+    {d:'M35,155 L70,170 L80,230 L60,300 L20,310 L10,250 Z'},
+    {d:'M80,230 L130,240 L180,250 L230,245 L280,255 L340,240 L330,260 L350,290 L320,360 L270,380 L200,385 L150,375 L100,350 L60,300 Z'},
+    {d:'M60,300 L100,350 L150,375 L200,385 L270,380 L320,360 L380,310 L495,300 L495,420 L5,420 L5,310 L20,310 Z'}
+  ];
+  const g=document.getElementById('map-regions');
+  regions.forEach(r=>{
+    const p=document.createElementNS('http://www.w3.org/2000/svg','path');
+    p.setAttribute('d',r.d);
+    p.setAttribute('class','dz-region');
+    g.appendChild(p);
+  });
+  const outline=document.createElementNS('http://www.w3.org/2000/svg','path');
+  outline.setAttribute('d','M40,65 L430,65 L495,90 L495,420 L5,420 L5,310 L35,155 Z');
+  outline.setAttribute('fill','none');
+  outline.setAttribute('stroke','#3a4a7a');
+  outline.setAttribute('stroke-width','2');
+  g.appendChild(outline);
+}
+
+function getScene(loc){
+  const c=loc.color, a=loc.accent, s=loc.scene;
+  const sky=`<defs><linearGradient id="gSky" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="${c}"/><stop offset="100%" stop-color="${a}33"/></linearGradient></defs>`;
+  const base=`<rect width="1200" height="600" fill="url(#gSky)"/>`;
+
+  const scenes={
+    city:`${sky}${base}
+      <rect x="80" y="220" width="70" height="380" rx="2" fill="#ffffff18"/>
+      <rect x="160" y="180" width="90" height="420" rx="2" fill="#ffffff14"/>
+      <rect x="260" y="160" width="80" height="440" rx="2" fill="#ffffff16"/>
+      <rect x="350" y="200" width="100" height="400" rx="2" fill="#ffffff12"/>
+      <rect x="460" y="170" width="75" height="430" rx="2" fill="#ffffff15"/>
+      <rect x="545" y="195" width="90" height="405" rx="2" fill="#ffffff18"/>
+      <rect x="645" y="155" width="110" height="445" rx="2" fill="#ffffff14"/>
+      <rect x="765" y="185" width="80" height="415" rx="2" fill="#ffffff16"/>
+      <rect x="855" y="165" width="95" height="435" rx="2" fill="#ffffff12"/>
+      <rect x="960" y="190" width="70" height="410" rx="2" fill="#ffffff18"/>
+      <rect x="1040" y="175" width="110" height="425" rx="2" fill="#ffffff14"/>
+      <ellipse cx="600" cy="230" rx="500" ry="80" fill="${a}15"/>
+      <path d="M0,460 Q300,400 600,440 Q900,480 1200,420 L1200,600 L0,600Z" fill="#07101f"/>
+      <ellipse cx="600" cy="460" rx="500" ry="30" fill="${a}22"/>`,
+    coastal:`${sky}${base}
+      <path d="M0,350 Q200,300 400,340 Q600,380 800,320 Q1000,260 1200,330 L1200,600 L0,600Z" fill="${a}44"/>
+      <path d="M0,380 Q300,340 600,370 Q900,400 1200,360 L1200,600 L0,600Z" fill="#07101fcc"/>
+      <ellipse cx="600" cy="375" rx="580" ry="30" fill="${a}33"/>
+      <rect x="150" y="230" width="60" height="150" rx="3" fill="#ffffff20"/>
+      <rect x="220" y="200" width="80" height="180" rx="3" fill="#ffffff16"/>
+      <rect x="310" y="220" width="55" height="160" rx="3" fill="#ffffff18"/>
+      <polygon points="900,180 960,300 840,300" fill="#ffffff18"/>
+      <rect x="845" y="298" width="115" height="80" fill="#ffffff14"/>`,
+    sahara:`${sky}${base}
+      <circle cx="1050" cy="80" r="55" fill="#f4c84a"/>
+      <polygon points="0,350 200,200 350,350" fill="#8B4513cc"/>
+      <polygon points="150,350 370,180 560,350" fill="#A0522Dcc"/>
+      <polygon points="400,350 580,210 720,350" fill="#8B4513bb"/>
+      <polygon points="600,350 800,190 960,350" fill="#9a5020cc"/>
+      <polygon points="820,350 1020,220 1200,350" fill="#8B4513cc"/>
+      <rect x="0" y="350" width="1200" height="250" fill="#c4862a"/>
+      <ellipse cx="600" cy="352" rx="600" ry="18" fill="#d4962a44"/>
+      <ellipse cx="300" cy="355" rx="80" ry="8" fill="#b4761a33"/>
+      <ellipse cx="900" cy="358" rx="100" ry="10" fill="#b4761a33"/>`,
+    bridges:`${sky}${base}
+      <rect x="0" y="320" width="1200" height="280" fill="#6B3A14cc"/>
+      <rect x="350" y="100" width="70" height="220" rx="2" fill="#ffffff22"/>
+      <rect x="430" y="80" width="90" height="240" rx="2" fill="#ffffff18"/>
+      <rect x="530" y="60" width="80" height="260" rx="2" fill="#ffffff20"/>
+      <rect x="620" y="90" width="70" height="230" rx="2" fill="#ffffff16"/>
+      <path d="M100,320 Q600,280 1100,320" fill="none" stroke="${a}" stroke-width="4"/>
+      <path d="M200,310 Q600,260 1000,310" fill="none" stroke="${a}88" stroke-width="2" stroke-dasharray="8 6"/>
+      <line x1="300" y1="310" x2="300" y2="180" stroke="${a}66" stroke-width="2"/>
+      <line x1="500" y1="290" x2="500" y2="160" stroke="${a}66" stroke-width="2"/>
+      <line x1="700" y1="290" x2="700" y2="170" stroke="${a}66" stroke-width="2"/>
+      <line x1="900" y1="305" x2="900" y2="185" stroke="${a}66" stroke-width="2"/>
+      <rect x="0" y="320" width="1200" height="10" fill="${a}44"/>`,
+    mosque:`${sky}${base}
+      <ellipse cx="600" cy="600" rx="400" ry="60" fill="${c}"/>
+      <rect x="450" y="200" width="300" height="300" rx="4" fill="#ffffff18"/>
+      <ellipse cx="600" cy="200" rx="150" ry="60" fill="#ffffff22"/>
+      <rect x="570" y="80" width="60" height="130" rx="2" fill="#ffffff20"/>
+      <ellipse cx="600" cy="78" rx="30" ry="12" fill="${a}"/>
+      <rect x="200" y="280" width="40" height="220" rx="2" fill="#ffffff14"/>
+      <ellipse cx="220" cy="280" rx="20" ry="8" fill="${a}66"/>
+      <rect x="960" y="280" width="40" height="220" rx="2" fill="#ffffff14"/>
+      <ellipse cx="980" cy="280" rx="20" ry="8" fill="${a}66"/>
+      <path d="M0,490 Q600,450 1200,490 L1200,600 L0,600Z" fill="#07101f"/>`,
+    mozab:`${sky}${base}
+      <rect x="0" y="360" width="1200" height="240" fill="#c4822a"/>
+      <polygon points="550,80 600,360 500,360" fill="#ffffff28"/>
+      <circle cx="575" cy="75" r="22" fill="${a}"/>
+      <rect x="300" y="220" width="50" height="140" rx="2" fill="#ffffff22"/>
+      <rect x="360" y="200" width="60" height="160" rx="2" fill="#ffffff18"/>
+      <rect x="430" y="180" width="65" height="180" rx="2" fill="#ffffff20"/>
+      <rect x="505" y="200" width="55" height="160" rx="2" fill="#ffffff16"/>
+      <rect x="570" y="215" width="50" height="145" rx="2" fill="#ffffff18"/>
+      <rect x="630" y="195" width="60" height="165" rx="2" fill="#ffffff20"/>
+      <rect x="700" y="220" width="50" height="140" rx="2" fill="#ffffff16"/>
+      <ellipse cx="600" cy="363" rx="500" ry="18" fill="${a}33"/>`,
+    oasis:`${sky}${base}
+      <circle cx="1000" cy="90" r="50" fill="#f4c84a"/>
+      <rect x="0" y="380" width="1200" height="220" fill="#c4862a"/>
+      <ellipse cx="200" cy="382" rx="70" ry="22" fill="#1a5a2a"/>
+      <rect x="185" y="240" width="30" height="145" rx="15" fill="#2a7a3a"/>
+      <ellipse cx="185" cy="235" rx="45" ry="55" fill="#3a9a4a"/>
+      <ellipse cx="400" cy="382" rx="60" ry="18" fill="#1a5a2a"/>
+      <rect x="390" y="260" width="25" height="125" rx="12" fill="#2a7a3a"/>
+      <ellipse cx="390" cy="255" rx="38" ry="48" fill="#3a9a4a"/>
+      <ellipse cx="750" cy="382" rx="80" ry="22" fill="#1a5a2a"/>
+      <rect x="738" y="230" width="28" height="155" rx="14" fill="#2a7a3a"/>
+      <ellipse cx="738" cy="225" rx="50" ry="62" fill="#3a9a4a"/>
+      <ellipse cx="1000" cy="382" rx="65" ry="20" fill="#1a5a2a"/>
+      <rect x="988" y="255" width="26" height="130" rx="13" fill="#2a7a3a"/>
+      <ellipse cx="988" cy="250" rx="42" ry="52" fill="#3a9a4a"/>`,
+    desert_art:`${sky}${base}
+      <circle cx="1050" cy="70" r="45" fill="#f4c84a"/>
+      <rect x="0" y="200" width="1200" height="400" fill="#8B3a1a"/>
+      <rect x="100" y="150" width="200" height="330" rx="8" fill="#6B2a12"/>
+      <rect x="500" y="100" width="280" height="380" rx="6" fill="#7B3018"/>
+      <rect x="900" y="170" width="180" height="310" rx="6" fill="#6B2a12"/>
+      <circle cx="180" cy="250" r="15" fill="${a}88"/>
+      <circle cx="220" cy="280" r="10" fill="${a}66"/>
+      <rect x="160" y="300" width="30" height="50" rx="5" fill="${a}55"/>
+      <circle cx="580" cy="200" r="20" fill="${a}88"/>
+      <rect x="560" y="230" width="40" height="70" rx="5" fill="${a}55"/>
+      <circle cx="650" cy="250" r="12" fill="${a}66"/>
+      <circle cx="700" cy="220" r="18" fill="${a}77"/>
+      <circle cx="950" cy="240" r="15" fill="${a}88"/>
+      <rect x="930" y="265" width="35" height="55" rx="5" fill="${a}55"/>`
+  };
+  return scenes[s]||scenes['city'];
+}
+
+function drawScene(loc){
+  document.getElementById('scene-svg-wrap').innerHTML=`
+    <svg viewBox="0 0 1200 600" xmlns="http://www.w3.org/2000/svg" style="width:100%;height:100%;display:block">
+      ${getScene(loc)}
+      <rect x="0" y="0" width="1200" height="600" fill="rgba(0,0,0,0.15)"/>
+      <text x="32" y="44" fill="${loc.accent}" font-size="32" font-family="DM Sans">${loc.icon}</text>
+      <text x="1168" y="44" text-anchor="end" fill="#ffffff30" font-size="12" font-family="DM Sans,sans-serif">${loc.desc}</text>
+    </svg>`;
+}
+
+function buildPips(){
+  const wrap=document.getElementById('pips');
+  wrap.innerHTML='';
+  for(let i=0;i<MAX_ROUNDS;i++){
+    const d=document.createElement('div');
+    d.className='pip'+(i<currentRound?' done':i===currentRound?' active':'');
+    d.id='pip-'+i;
+    wrap.appendChild(d);
+  }
+}
+
+function placeGuess(e){
+  const svg=document.getElementById('dz-map');
+  const rect=svg.getBoundingClientRect();
+  guessX=((e.clientX-rect.left)/rect.width)*500;
+  guessY=((e.clientY-rect.top)/rect.height)*420;
+  guessPlaced=true;
+  updateMarkers();
+  document.getElementById('guess-btn').classList.add('active');
+  document.getElementById('map-hint').textContent='Click to reposition · Confirm when ready';
+}
+
+function updateMarkers(showActual=false){
+  const g=document.getElementById('markers-layer');
+  g.innerHTML='';
+  if(guessPlaced){
+    const outer=document.createElementNS('http://www.w3.org/2000/svg','circle');
+    outer.setAttribute('cx',guessX);outer.setAttribute('cy',guessY);
+    outer.setAttribute('r','12');outer.setAttribute('fill','rgba(212,168,67,0.2)');
+    g.appendChild(outer);
+    const c=document.createElementNS('http://www.w3.org/2000/svg','circle');
+    c.setAttribute('cx',guessX);c.setAttribute('cy',guessY);
+    c.setAttribute('r','7');c.setAttribute('fill','#d4a843');
+    c.setAttribute('stroke','#fff');c.setAttribute('stroke-width','2');
+    g.appendChild(c);
+  }
+  if(showActual){
+    const loc=locations[roundOrder[currentRound]];
+    const line=document.createElementNS('http://www.w3.org/2000/svg','line');
+    line.setAttribute('x1',guessX);line.setAttribute('y1',guessY);
+    line.setAttribute('x2',loc.x);line.setAttribute('y2',loc.y);
+    line.setAttribute('stroke','rgba(212,168,67,0.6)');line.setAttribute('stroke-width','1.5');
+    line.setAttribute('stroke-dasharray','5 4');
+    g.appendChild(line);
+    const glow=document.createElementNS('http://www.w3.org/2000/svg','circle');
+    glow.setAttribute('cx',loc.x);glow.setAttribute('cy',loc.y);
+    glow.setAttribute('r','14');glow.setAttribute('fill','rgba(74,222,128,0.2)');
+    g.appendChild(glow);
+    const actual=document.createElementNS('http://www.w3.org/2000/svg','circle');
+    actual.setAttribute('cx',loc.x);actual.setAttribute('cy',loc.y);
+    actual.setAttribute('r','8');actual.setAttribute('fill','#4ade80');
+    actual.setAttribute('stroke','#fff');actual.setAttribute('stroke-width','2');
+    g.appendChild(actual);
+    const t=document.createElementNS('http://www.w3.org/2000/svg','text');
+    t.setAttribute('x',loc.x+12);t.setAttribute('y',loc.y+4);
+    t.setAttribute('fill','#4ade80');t.setAttribute('font-size','10');
+    t.setAttribute('font-family','DM Sans,sans-serif');
+    t.textContent=loc.name;
+    g.appendChild(t);
+  }
+}
+
+function calcScore(dx,dy){
+  const dist=Math.sqrt(dx*dx+dy*dy);
+  if(dist<10) return 1000;
+  if(dist<30) return Math.round(950-(dist-10)*10);
+  if(dist<80) return Math.round(750-(dist-30)*5);
+  if(dist<160) return Math.round(500-(dist-80)*2.5);
+  return Math.max(0,Math.round(300-(dist-160)));
+}
+
+function getStars(s){
+  if(s>=900) return '⭐⭐⭐';
+  if(s>=600) return '⭐⭐';
+  if(s>=300) return '⭐';
+  return '';
+}
+
+function submitGuess(){
+  if(!guessPlaced) return;
+  const loc=locations[roundOrder[currentRound]];
+  const dx=guessX-loc.x, dy=guessY-loc.y;
+  const dist=Math.sqrt(dx*dx+dy*dy);
+  const rs=calcScore(dx,dy);
+  totalScore+=rs;
+  roundScores.push(rs);
+  updateMarkers(true);
+  document.getElementById('guess-btn').style.display='none';
+  document.getElementById('score-display').textContent=totalScore;
+  setTimeout(()=>showResult(loc,dist,rs),1000);
+}
+
+function showResult(loc,dist,rs){
+  document.getElementById('game-screen').style.display='none';
+  document.getElementById('result-screen').style.display='flex';
+  document.getElementById('result-stars').textContent=getStars(rs);
+  document.getElementById('result-score').textContent='+'+rs;
+  const isLast=(currentRound+1>=MAX_ROUNDS);
+  document.getElementById('next-btn').textContent=isLast?'See Final Score ↗':'Next Round →';
+  const km=Math.round(dist*18);
+  document.getElementById('result-details').innerHTML=`
+    <div class="result-row"><span class="label">Correct location</span><span class="val green">${loc.name}</span></div>
+    <div class="result-row"><span class="label">Wilaya</span><span class="val">${loc.wilaya}</span></div>
+    <div class="result-row"><span class="label">Distance off</span><span class="val">${km} km</span></div>
+    <div class="result-row"><span class="label">Round score</span><span class="val gold">+${rs} pts</span></div>
+    <div class="result-row"><span class="label">Total score</span><span class="val gold">${totalScore} / ${(currentRound+1)*1000}</span></div>`;
+}
+
+function nextRound(){
+  currentRound++;
+  if(currentRound>=MAX_ROUNDS){showFinal();return;}
+  guessX=null;guessY=null;guessPlaced=false;
+  document.getElementById('result-screen').style.display='none';
+  document.getElementById('game-screen').style.display='flex';
+  document.getElementById('markers-layer').innerHTML='';
+  document.getElementById('guess-btn').classList.remove('active');
+  document.getElementById('guess-btn').style.display='';
+  document.getElementById('map-hint').textContent='Click on the map to place your guess';
+  loadRound();
+}
+
+function showFinal(){
+  document.getElementById('result-screen').style.display='none';
+  document.getElementById('header').style.display='none';
+  document.getElementById('final-screen').style.display='flex';
+  const pct=Math.round((totalScore/(MAX_ROUNDS*1000))*100);
+  document.getElementById('final-medal').textContent=pct>=80?'🥇':pct>=60?'🥈':pct>=40?'🥉':'🎖️';
+  document.getElementById('final-score-val').textContent=totalScore;
+  document.getElementById('final-pct').textContent=pct+'% accuracy — '+totalScore+' / '+(MAX_ROUNDS*1000)+' pts';
+  document.getElementById('final-msg').textContent=
+    pct>=80?'Exceptional! You know Algeria inside out 🇩🇿':
+    pct>=60?'Great job! You have a solid knowledge of Algeria.':
+    pct>=40?'Not bad — Algeria is a vast and diverse country!':
+    'Keep exploring — Algeria has so much to discover!';
+  const sb=document.getElementById('score-breakdown');
+  sb.innerHTML=roundScores.map((s,i)=>`<div class="round-pill"><div class="r-label">R${i+1}</div><div class="r-score">${s}</div></div>`).join('');
+}
+
+function loadRound(){
+  buildPips();
+  const loc=locations[roundOrder[currentRound]];
+  document.getElementById('round-display').textContent=`${currentRound+1} / ${MAX_ROUNDS}`;
+  document.getElementById('wilaya-badge').textContent=loc.wilaya;
+  document.getElementById('clue-text').innerHTML=loc.clue;
+  drawScene(loc);
+}
+
+function startGame(){
+  currentRound=0;totalScore=0;roundScores=[];
+  roundOrder=shuffle([...Array(locations.length).keys()]).slice(0,MAX_ROUNDS);
+  guessX=null;guessY=null;guessPlaced=false;
+  document.getElementById('score-display').textContent='0';
+  document.getElementById('start-screen').style.display='none';
+  document.getElementById('final-screen').style.display='none';
+  document.getElementById('game-screen').style.display='flex';
+  document.getElementById('header').style.display='flex';
+  document.getElementById('markers-layer').innerHTML='';
+  document.getElementById('guess-btn').classList.remove('active');
+  document.getElementById('guess-btn').style.display='';
+  document.getElementById('map-hint').textContent='Click on the map to place your guess';
+  loadRound();
+}
+
+function restartGame(){
+  document.getElementById('final-screen').style.display='none';
+  document.getElementById('start-screen').style.display='flex';
+}
+
+buildMap();
+</script>
+</body>
+</html>
